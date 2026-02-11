@@ -61,11 +61,13 @@
 > - `bedgraph/`: bedGraph tracks derived from `probability_mean` (combined, plus-only, minus-only). 
 >
 > **Installation notes**
+> ```bash
 > conda create -n bactermfinder python=3.9
 > conda activate bactermfinder
 > pip install numpy==1.23.0
 > pip install -r requirements.txt
 > conda install -c bioconda bedtools
+> ```
 > 
 > Modifications to the genome_scan.py script and documentation were prepared with the assistance of GPT 5.2 Thinking via Perplexity Pro
 
