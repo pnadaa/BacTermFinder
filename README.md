@@ -1,5 +1,72 @@
 # BacTermFinder: Bacteria-agnostic Comprehensive Terminator Finder using a CNN Ensemble
 
+
+> ## Fork notes (changes in this fork)
+> This fork adds a parallel, multi-genome runner and several quality-of-life improvements while keeping the original BacTermFinder model and output semantics unchanged.
+> The original python genome_scan.py file has been kept. All changes are to the python file: genome_scan_parallel.py
+>
+> **What changed**
+> - **Fixed issue #1**: input and output directories no longer need to be in the same directory. 
+> - **Parallel processing across genomes**: a new/modified genome scanning script can take a directory/glob of genomes and run one genome per process (configurable `--jobs`). 
+> - **GenBank input support**: directories containing `.gbff/.gbk/.gb/.genbank` (optionally `.gz`) are accepted; GenBank files are automatically converted to FASTA in a per-genome working directory before scanning. 
+> - **Per-genome output folders**: each genome gets its own output folder under an output root directory to avoid filename collisions when running in parallel. 
+> - **Per-genome logs**: all stdout/stderr is captured into a `run.log` file inside each genome’s output folder rather than printing progress to the terminal. 
+> - **bedGraph export**: the final `*_mean.csv` output is additionally written as bedGraph tracks using `probability_mean`, with separate files for `+`, `-`, and combined; bedGraph files are placed in a dedicated `bedgraph/` subfolder within each genome output directory. 
+>
+> **How to run the forked parallel runner**
+>
+> This fork includes a parallel “multi-genome” runner (one genome per process). Inputs can be FASTA (`.fa/.fna/.fasta/.fas`) **or** GenBank (`.gb/.gbk/.gbff/.genbank`), optionally gzipped (`.gz`). 
+> Please note: running multiple genomes in parallel is very memory intensive as models are simultaneously loaded into RAM. Observed usage: 16 jobs = ~150 - 180gb RAM
+>
+> **CLI (recommended)**
+> ```bash
+> # show all options
+> python genome_scan_parallel.py --help
+>
+> # run a directory of .fa or .gbff files (non-recursive)
+> python genome_scan_parallel.py /path/to/dir \
+>   --step-size 3 \
+>   --batch-size 10000 \
+>   --jobs 8 \
+>   --out-root output
+>
+> # run recursively (if genomes are in subfolders)
+> python genome_scan_parallel.py /path/to/dir \
+>   --recursive \
+>   --step-size 3 \
+>   --batch-size 10000 \
+>   --jobs 8 \
+>   --out-root output
+>
+> # run a glob of FASTA or GenBank files
+> python genome_scan_parallel.py "data/*.fasta" "data/*.gbff" \
+>   --step-size 3 \
+>   --batch-size 10000 \
+>   --jobs 8 \
+>   --out-root output
+> ```
+>
+> **Required arguments**
+> - `--step-size`: sliding window stride (same meaning as the original script). 
+> - `--batch-size`: iLearnPlus feature generation batch size (same meaning as the original script). 
+>
+> **Outputs**
+> For each input genome, results are written to a dedicated folder:
+> `--out-root/<genome_name>/` 
+>
+> That per-genome folder contains:
+> - `run.log`: execution log for that genome (stdout/stderr). 
+> - `*_sliding_windows.csv`: sliding windows table. 
+> - `*_mean.csv`: ensemble mean predictions (same columns/semantics as original output). 
+> - `bedgraph/`: bedGraph tracks derived from `probability_mean` (combined, plus-only, minus-only). 
+>
+> **Installation notes**
+> conda create -n bactermfinder python=3.9
+> conda activate bactermfinder
+> pip install numpy==1.23.0
+> pip install -r requirements.txt
+> conda install -c bioconda bedtools
+
 ## Abstract 
 Terminator is a region in the DNA that ends the transcription process. Finding bacterial terminators will lead to a better understanding of how bacterial transcription works.  Currently, multiple tools are available for predicting bacterial terminators. However, most methods are specialized for certain bacteria or terminator types. In this work, we developed BacTermFinder, a tool that utilizes Convolutional Neural Networks (CNNs) with four different genomic representations trained on 41k bacterial terminators identified using RNA-seq technologies. Based on our results, BacTermFinder's recall score is higher than that of the other four approaches we considered in our independent validation set of five different bacteria. Moreover, BacTermFinder's model identifies both types of terminators (intrinsic and factor-dependent) and even generalizes to archeal terminators. 
 ![Visual abstract of BacTermFinder](./misc/vis_abstract.png)
