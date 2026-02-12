@@ -12,6 +12,7 @@
 > - **Per-genome output folders**: each genome gets its own output folder under an output root directory to avoid filename collisions when running in parallel. 
 > - **Per-genome logs**: all stdout/stderr is captured into a `run.log` file inside each genome’s output folder rather than printing progress to the terminal. 
 > - **bedGraph export**: the final `*_mean.csv` output is additionally written as bedGraph tracks using `probability_mean`, with separate files for `+`, `-`, and combined; bedGraph files are placed in a dedicated `bedgraph/` subfolder within each genome output directory. 
+> - **resume mode**: an optional parameter which excludes previously run genomes from being run again in the case that a run is interrupted or fails. (`--resume`)
 >
 > **How to run the forked parallel runner**
 >
