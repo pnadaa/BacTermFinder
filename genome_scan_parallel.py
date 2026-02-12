@@ -5,7 +5,8 @@ Parallel bactermfinder genome scan.
 - Accepts FASTA (.fa/.fna/.fasta/.fas) and GenBank (.gb/.gbk/.gbff/.genbank), optionally gzipped (.gz).
 - If input is GenBank, converts to FASTA inside the per-genome work directory.
 - Runs per-genome pipeline in parallel (processes) across multiple genome files/directories/globs.
-- Writes logs to: <out-root>/<genome-stem>/run.log (one log per genome).
+- Writes logs to: <out-root>/<genome-stem>/<log_filename> (one log per genome).
+- Optional resume mode: skips genomes whose log indicates successful completion.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, List, Optional, Tuple, Iterator, TextIO
+from typing import IO, Iterator, List, Optional, TextIO, Tuple
 
 import numpy as np
 import pandas as pd
@@ -43,7 +44,6 @@ def redirect_fds_to_file(log_path: Path, mode: str = "a") -> Iterator[TextIO]:
     with open(log_path, mode, buffering=1) as logh:
         saved_stdout_fd = os.dup(1)
         saved_stderr_fd = os.dup(2)
-
         try:
             os.dup2(logh.fileno(), 1)
             os.dup2(logh.fileno(), 2)
@@ -58,7 +58,6 @@ def redirect_fds_to_file(log_path: Path, mode: str = "a") -> Iterator[TextIO]:
                 sys.stdout, sys.stderr = saved_py_out, saved_py_err
                 py_out.close()
                 py_err.close()
-
         finally:
             os.dup2(saved_stdout_fd, 1)
             os.dup2(saved_stderr_fd, 2)
@@ -98,7 +97,6 @@ def _open_maybe_gzip(path: Path) -> IO:
 def ensure_fasta(genome_path: Path, work_dir: Path) -> Path:
     """
     Ensure we have a plain-text FASTA file path usable by SeqIO.parse(filename, "fasta").
-
     - FASTA (not gz): returned as-is.
     - FASTA.gz: decompressed to work_dir and returned.
     - GenBank/gbff (gz or not): converted to FASTA in work_dir and returned.
@@ -135,17 +133,12 @@ def ensure_fasta(genome_path: Path, work_dir: Path) -> Path:
 
 def find_genomes(inputs: List[str], recursive: bool = False) -> List[Path]:
     """
-    Accept:
-    - file paths
-    - directories
-    - globs (e.g. data/*.gbff)
-    Returns unique list of genome paths (FASTA or GenBank, optionally gzipped).
+    Accept: file paths, directories, globs. Returns unique genome paths (FASTA/GenBank, optionally gzipped).
     """
     def is_genome_file(p: Path) -> bool:
         return is_fasta_path(p) or is_genbank_path(p)
 
     paths: List[Path] = []
-
     for s in inputs:
         p = Path(s)
 
@@ -259,6 +252,7 @@ def predict_one_embedding(
 ) -> pd.DataFrame:
     """Predict probabilities for all batches for one embedding."""
     import tensorflow as tf
+
     out_dir = work_dir / "output_sample"
     emb_prefix = embedding.tag.replace(".csv", "")
 
@@ -310,7 +304,6 @@ def run_ilearnplus_fileprocessing(
         str(out_dir),
     ]
     print(f"Running iLearnPlus: {' '.join(cmd)}", flush=True)
-    # stdout/stderr already redirected by the caller; don't capture here.
     subprocess.run(cmd, check=True)
 
 
@@ -336,7 +329,7 @@ def parse_samplename_to_coords(sample: str) -> Tuple[str, int, int, str]:
     strand = parts[-1]
     end = int(parts[-2])
     start = int(parts[-3])
-    chrom = "_".join(parts[1:-3])  # seq_id can contain underscores
+    chrom = "_".join(parts[1:-3])
     return chrom, start, end, strand
 
 
@@ -344,11 +337,11 @@ def write_bedgraph(
     df_merged: pd.DataFrame,
     bedgraph_path: Path,
     value_col: str = "probability_mean",
-    strand: Optional[str] = None,   # "+", "-", or None for both
+    strand: Optional[str] = None,
 ) -> None:
     """
-    Write bedGraph: chrom  start  end  value
-    Note: bedGraph has no strand column, so optionally filter by strand and write two files.
+    Write bedGraph: chrom start end value
+    Note: bedGraph has no strand column, so optionally filter by strand and write separate files.
     """
     rows = []
     for s, v in zip(df_merged["SampleName"].values, df_merged[value_col].values):
@@ -359,8 +352,55 @@ def write_bedgraph(
 
     out = pd.DataFrame(rows, columns=["chrom", "start", "end", "value"])
     out.sort_values(["chrom", "start", "end"], inplace=True)
+    bedgraph_path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(bedgraph_path, sep="\t", header=False, index=False)
 
+
+# ----------------------------
+# Resume helpers
+# ----------------------------
+
+_DONE_RE = re.compile(r"^Done in\s+\d+(\.\d+)?s\s*$")
+_FINAL_RE = re.compile(r"^Final output:\s+.+\s*$")
+
+
+def is_run_complete(work_dir: Path, log_filename: str = "run.log") -> bool:
+    """
+    Determine completion by checking the end of the log file.
+
+    Criteria (tail-based):
+    - A line matching 'Done in <seconds>s' exists in the last ~50 lines AND
+    - A line starting with 'Final output:' exists after it (or also in the tail).
+    """
+    log_path = work_dir / log_filename
+    if not log_path.exists():
+        return False
+
+    try:
+        tail_lines = log_path.read_text(errors="replace").splitlines()[-50:]
+    except OSError:
+        return False
+
+    # Find last Done line index
+    done_idx = None
+    for i in range(len(tail_lines) - 1, -1, -1):
+        if _DONE_RE.match(tail_lines[i].strip()):
+            done_idx = i
+            break
+    if done_idx is None:
+        return False
+
+    # Require a Final output line at/after done line (ideally last-ish)
+    for j in range(done_idx, len(tail_lines)):
+        if _FINAL_RE.match(tail_lines[j].strip()):
+            return True
+
+    return False
+
+
+# ----------------------------
+# Main worker
+# ----------------------------
 
 def run_bactermfinder(
     genome_file: Path,
@@ -373,38 +413,40 @@ def run_bactermfinder(
     ilearn_threads: int = 16,
     use_gpu: Optional[bool] = None,
     log_filename: str = "run.log",
+    resume: bool = False,
 ) -> Path:
     """
     Full per-genome pipeline. Returns path to the final mean CSV.
-    Writes all logs to <work_dir>/<log_filename>.
     """
     genome_file = genome_file.resolve()
     genome_stem = _stem_without_double_ext(genome_file)
-
     work_dir = out_root / genome_stem
+    log_path = work_dir / log_filename
+
+    # Resume: if log indicates completion, do nothing.
+    if resume and work_dir.exists() and is_run_complete(work_dir, log_filename=log_filename):
+        return work_dir / f"{genome_stem}_mean.csv"
+
+    # Otherwise start fresh
     if work_dir.exists():
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    log_path = work_dir / log_filename
-
-    # Redirect *OS-level* stdout/stderr for this whole per-genome job
     with redirect_fds_to_file(log_path, mode="w"):
-        # Decide GPU usage INSIDE the redirect so TF startup logs go into the file
         if use_gpu is None:
             use_gpu = gpu_available()
 
         print(f"Genome input: {genome_file}", flush=True)
-        print(f"Work dir:     {work_dir}", flush=True)
-        print(f"Step size:    {step_size}", flush=True)
-        print(f"Batch size:   {batch_size}", flush=True)
-        print(f"Window size:  {window_size}", flush=True)
-        print(f"GPU enabled:  {use_gpu}", flush=True)
+        print(f"Work dir: {work_dir}", flush=True)
+        print(f"Step size: {step_size}", flush=True)
+        print(f"Batch size: {batch_size}", flush=True)
+        print(f"Window size: {window_size}", flush=True)
+        print(f"GPU enabled: {use_gpu}", flush=True)
 
         t0 = time.time()
 
         genome_fasta = ensure_fasta(genome_file, work_dir)
-        print(f"Using FASTA:  {genome_fasta}", flush=True)
+        print(f"Using FASTA: {genome_fasta}", flush=True)
 
         print("Sliding windows...", flush=True)
         df_slide = extract_sliding_windows(
@@ -436,10 +478,10 @@ def run_bactermfinder(
         print(f"iLearnPlus output dir: {out_sample_dir}", flush=True)
 
         specs = [
-            ModelSpec("ENAC.csv",   (97, 4),   "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_ENAC.csv_saved_model.h5"),
-            ModelSpec("PS2.csv",    (100, 16), "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_PS2.csv_saved_model.h5"),
-            ModelSpec("NCP.csv",    (101, 3),  "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_NCP.csv_saved_model.h5"),
-            ModelSpec("binary.csv", (101, 4),  "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_binary.csv_saved_model.h5"),
+            ModelSpec("ENAC.csv", (97, 4), "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_ENAC.csv_saved_model.h5"),
+            ModelSpec("PS2.csv", (100, 16), "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_PS2.csv_saved_model.h5"),
+            ModelSpec("NCP.csv", (101, 3), "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_NCP.csv_saved_model.h5"),
+            ModelSpec("binary.csv", (101, 4), "deep-bactermfinder_3cnn_1d_1cat_reduced_10x_binary.csv_saved_model.h5"),
         ]
 
         print("Predicting...", flush=True)
@@ -464,7 +506,6 @@ def run_bactermfinder(
 
         bedgraph_dir = work_dir / "bedgraph"
         bedgraph_dir.mkdir(parents=True, exist_ok=True)
-
         bedgraph_all = bedgraph_dir / f"{genome_stem}_mean.bedgraph"
         bedgraph_plus = bedgraph_dir / f"{genome_stem}_mean.plus.bedgraph"
         bedgraph_minus = bedgraph_dir / f"{genome_stem}_mean.minus.bedgraph"
@@ -481,7 +522,7 @@ def run_bactermfinder(
         print(f"Done in {dt:.1f}s", flush=True)
         print(f"Final output: {final_csv}", flush=True)
 
-    return final_csv
+    return work_dir / f"{genome_stem}_mean.csv"
 
 
 # ----------------------------
@@ -507,6 +548,7 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=max(1, os.cpu_count() or 1), help="Parallel processes (default: all cores)")
     ap.add_argument("--force-cpu", action="store_true", help="Disable GPU even if available")
     ap.add_argument("--log-filename", type=str, default="run.log", help="Per-genome log filename (default: run.log)")
+    ap.add_argument("--resume", action="store_true", help="Skip genomes whose log indicates completion")
     args = ap.parse_args()
 
     # TF + multiprocessing: spawn is safer than fork
@@ -532,6 +574,19 @@ def main() -> int:
     if use_gpu is None and gpu_available() and args.jobs > 1:
         use_gpu = False
 
+    if args.resume:
+        kept = []
+        skipped = 0
+        for gf in genomes:
+            genome_stem = _stem_without_double_ext(gf)
+            work_dir = args.out_root / genome_stem
+            if work_dir.exists() and is_run_complete(work_dir, log_filename=args.log_filename):
+                skipped += 1
+            else:
+                kept.append(gf)
+        genomes = kept
+        print(f"Resume enabled: skipping {skipped} completed genomes; running {len(genomes)} remaining.")
+
     results: List[Path] = []
     failures: List[Tuple[Path, str]] = []
 
@@ -550,6 +605,7 @@ def main() -> int:
                 ilearn_threads=args.ilearn_threads,
                 use_gpu=use_gpu,
                 log_filename=args.log_filename,
+                resume=args.resume,
             )
             fut_to_path[fut] = gf
 
@@ -558,10 +614,8 @@ def main() -> int:
             try:
                 results.append(fut.result())
             except Exception as e:
-                # Only a brief failure message goes to terminal now
                 failures.append((gf, repr(e)))
 
-    # Minimal terminal output (only summary); details are in per-genome logs
     print(f"Completed: {len(results)}")
     if failures:
         print(f"Failed: {len(failures)}")
