@@ -17,7 +17,7 @@
 > **How to run the forked parallel runner**
 >
 > This fork includes a parallel “multi-genome” runner (one genome per process). Inputs can be FASTA (`.fa/.fna/.fasta/.fas`) **or** GenBank (`.gb/.gbk/.gbff/.genbank`), optionally gzipped (`.gz`). 
-> Please note: running multiple genomes in parallel is very memory intensive as models are simultaneously loaded into RAM. Observed usage: 16 jobs = ~150 - 180gb RAM
+> Please note: running multiple genomes in parallel is very memory intensive as models are simultaneously loaded into RAM. Observed usage: 16 jobs = ~260+gb RAM
 >
 > **CLI (recommended)**
 > ```bash
