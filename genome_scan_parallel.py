@@ -304,7 +304,24 @@ def run_ilearnplus_fileprocessing(
         str(out_dir),
     ]
     print(f"Running iLearnPlus: {' '.join(cmd)}", flush=True)
-    subprocess.run(cmd, check=True)
+    
+    # Explicitly pass sys.stdout/stderr (which are already redirected) to avoid fd issues
+    try:
+        result = subprocess.run(
+            cmd, 
+            check=False,
+            stdout=sys.stdout, 
+            stderr=sys.stderr,
+            text=True,
+            timeout=21600,  # 6 hour timeout
+        )
+        if result.returncode != 0:
+            print(f"iLearnPlus failed with exit code {result.returncode}", flush=True)
+            raise subprocess.CalledProcessError(result.returncode, cmd)
+    except subprocess.TimeoutExpired:
+        print(f"iLearnPlus timed out after 3600s", flush=True)
+        raise
+
 
 
 def _stem_without_double_ext(p: Path) -> str:
@@ -468,6 +485,7 @@ def run_bactermfinder(
             shutil.rmtree(out_sample_dir)
 
         print("iLearnPlus feature generation...", flush=True)
+        time.sleep(0.1) 
         run_ilearnplus_fileprocessing(
             fileprocessing_py=ilearn_fileprocessing,
             fasta_path=fasta_path,
@@ -544,7 +562,7 @@ def main() -> int:
         default=None,
         help="Path to iLearnPlus/util/FileProcessing.py (default: scriptdir/iLearnPlus/util/FileProcessing.py)",
     )
-    ap.add_argument("--ilearn-threads", type=int, default=16, help="Threads argument passed to FileProcessing.py")
+    ap.add_argument("--ilearn-threads", type=int, default=1, help="Threads argument passed to FileProcessing.py")
     ap.add_argument("--jobs", type=int, default=max(1, os.cpu_count() or 1), help="Parallel processes (default: all cores)")
     ap.add_argument("--force-cpu", action="store_true", help="Disable GPU even if available")
     ap.add_argument("--log-filename", type=str, default="run.log", help="Per-genome log filename (default: run.log)")
