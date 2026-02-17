@@ -622,7 +622,7 @@ def run_bactermfinder(
         print(f"Window size: {window_size}", flush=True)
         print(f"GPU enabled: {use_gpu}", flush=True)
         print(f"iLearnPlus ncores arg (3rd positional): {ilearn_ncores_arg}", flush=True)
-        printf("Subprocess thread env override: %s", ("OFF (defaults)" if not subprocess_threads else subprocess_threads), flush=True)
+        print(f"Subprocess thread env override: %s", ("OFF (defaults)" if not subprocess_threads else subprocess_threads), flush=True)
 
         t0 = time.time()
 
