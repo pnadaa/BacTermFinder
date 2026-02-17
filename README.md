@@ -5,7 +5,7 @@
 > The original python `genome_scan.py` file has been kept. All fork changes are in: `genome_scan_parallel.py`
 >
 > **README fork update (Feb 2026):** `genome_scan_parallel.py` has grown beyond a simple “parallel wrapper”: it now supports FASTA *and* GenBank inputs (optionally `.gz`), writes per-genome work directories under `--out-root`, captures per-genome logs, can resume completed genomes, and can export bedGraph tracks; it also adds safer cleanup/deletion behavior and more explicit control over CPU-threading and GPU usage.
-> 
+>
 > **What changed (fork highlights)**
 > - **Parallel processing across genomes**: run many genomes in one invocation (one genome per process) with `--jobs`.
 > - **Flexible inputs**: accepts FASTA (`.fa/.fna/.fasta/.fas`) and GenBank (`.gb/.gbk/.gbff/.genbank`), optionally gzipped (`.gz`).
