@@ -79,15 +79,15 @@
 > - `--model-dir` (Path, default .): Directory containing .h5 models.​
 > - `--ilearn-fileprocessing` (Path, default scriptdir/iLearnPlus/util/FileProcessing.py): Path to iLearnPlus FileProcessing.py.​
 > - `--ilearn-ncores-arg` (int, default 16): 3rd positional arg passed to iLearnPlus FileProcessing.py (script warns not to set it to 1).​
-> - `--subprocess-threads` (int, default 0): If >0, set OMP/MKL/OPENBLAS/NUMEXPR thread env vars to this value; if 0, do not touch thread env vars (library/environment defaults). Set to 1 to for stability and to minimise oversubscription.​
+> - `--subprocess-threads` (int, default 0): If >0, set OMP/MKL/OPENBLAS/NUMEXPR thread env vars to this value; if 0, use default thread env vars (library/environment defaults). Set to 1 to for stability and to minimise oversubscription.​
 > - `--clean-output-sample`: Remove per-genome output_sample/ after successful completion (default keep).​
 > - `--clean-intermediates`: Remove df_sample.fasta and *_sliding_windows.csv after successful completion (default keep).​
 > - `--jobs` (int, default all cores): Number of parallel processes.​
 > - `--force-cpu`: Disable GPU even if available.​
 > - `--log-filename` (str, default run.log): Per-genome log filename.​
 > - `--resume`: Skip genomes whose log indicates completion.​
-> - `--allow-unsafe-delete`: Dangerous; allows deleting existing work dirs under --out-root even if not created by this script.
-> - `--ilearn-threads` (int, deprecated): Alias for --ilearn-ncores-arg (kept for compatibility).​
+> - `--allow-unsafe-delete`: Dangerous; allows deleting existing work dirs under `--out-root` even if not created by this script.
+> - `--ilearn-threads` (int, deprecated): Alias for `--ilearn-ncores-arg` (kept for compatibility).​
 >
 >
 > **Required arguments**
