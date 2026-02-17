@@ -1,30 +1,35 @@
 # BacTermFinder: Bacteria-agnostic Comprehensive Terminator Finder using a CNN Ensemble
 
-
 > ## Fork notes (changes in this fork)
-> This fork adds a parallel, multi-genome runner and several quality-of-life improvements while keeping the original BacTermFinder model and output semantics unchanged.
-> The original python genome_scan.py file has been kept. All changes are to the python file: genome_scan_parallel.py
+> This fork adds a parallel, multi-genome runner and several quality-of-life improvements while keeping the original BacTermFinder model and overall workflow unchanged.
+> The original python `genome_scan.py` file has been kept. All fork changes are in: `genome_scan_parallel.py`
 >
-> **What changed**
-> - **Fixed issue #1**: input and output directories no longer need to be in the same directory. 
-> - **Parallel processing across genomes**: a new/modified genome scanning script can take a directory/glob of genomes and run one genome per process (configurable `--jobs`). 
-> - **GenBank input support**: directories containing `.gbff/.gbk/.gb/.genbank` (optionally `.gz`) are accepted; GenBank files are automatically converted to FASTA in a per-genome working directory before scanning. 
-> - **Per-genome output folders**: each genome gets its own output folder under an output root directory to avoid filename collisions when running in parallel. 
-> - **Per-genome logs**: all stdout/stderr is captured into a `run.log` file inside each genome’s output folder rather than printing progress to the terminal. 
-> - **bedGraph export**: the final `*_mean.csv` output is additionally written as bedGraph tracks using `probability_mean`, with separate files for `+`, `-`, and combined; bedGraph files are placed in a dedicated `bedgraph/` subfolder within each genome output directory. 
-> - **resume mode**: an optional parameter which excludes previously run genomes from being run again in the case that a run is interrupted or fails. (`--resume`)
+> **README fork update (Feb 2026):** `genome_scan_parallel.py` has grown beyond a simple “parallel wrapper”: it now supports FASTA *and* GenBank inputs (optionally `.gz`), writes per-genome work directories under `--out-root`, captures per-genome logs, can resume completed genomes, and can export bedGraph tracks; it also adds safer cleanup/deletion behavior and more explicit control over CPU-threading and GPU usage.
+> 
+> **What changed (fork highlights)**
+> - **Parallel processing across genomes**: run many genomes in one invocation (one genome per process) with `--jobs`.
+> - **Flexible inputs**: accepts FASTA (`.fa/.fna/.fasta/.fas`) and GenBank (`.gb/.gbk/.gbff/.genbank`), optionally gzipped (`.gz`).
+> - **Per-genome work directories**: each genome gets its own folder under `--out-root/<genome_stem>/` to avoid collisions.
+> - **Per-genome logs**: stdout/stderr (including native-library output) is captured to `run.log` inside each genome folder by default.
+> - **Resume mode**: `--resume` skips genomes whose logs indicate successful completion (useful after interruptions).
+> - **bedGraph export**: additionally writes bedGraph tracks derived from the mean probability to `bedgraph/` under each per-genome folder (combined, plus-only, minus-only).
+> - **Safer cleanup**: the script uses a sentinel file in per-genome workdirs and refuses obviously dangerous `--out-root` values; use `--allow-unsafe-delete` only if you understand the risk.
+> - **More explicit performance controls**:
+>   - `--subprocess-threads` sets common BLAS/OpenMP-related env vars (stability + reduced oversubscription).
+>   - `--force-cpu` disables GPU use (and multi-process runs default to CPU to avoid VRAM contention).
+>   - `--ilearn-ncores-arg` controls the 3rd positional argument passed to iLearnPlus `FileProcessing.py` (do not set this to `1` unless you know exactly why).
 >
 > **How to run the forked parallel runner**
 >
-> This fork includes a parallel “multi-genome” runner (one genome per process). Inputs can be FASTA (`.fa/.fna/.fasta/.fas`) **or** GenBank (`.gb/.gbk/.gbff/.genbank`), optionally gzipped (`.gz`). 
-> Please note: running multiple genomes in parallel is very memory intensive as models are simultaneously loaded into RAM. Observed usage: 16 jobs = ~260+gb RAM
+> This fork includes a parallel “multi-genome” runner (one genome per process). Inputs can be FASTA (`.fa/.fna/.fasta/.fas`) **or** GenBank (`.gb/.gbk/.gbff/.genbank`), optionally gzipped (`.gz`).
+> Please note: running multiple genomes in parallel is very memory intensive as models are simultaneously loaded into RAM. (Example observed usage: 16 jobs ≈ 260+ GB RAM.)
 >
 > **CLI (recommended)**
 > ```bash
 > # show all options
 > python genome_scan_parallel.py --help
 >
-> # run a directory of .fa or .gbff files (non-recursive)
+> # run a directory of .fa/.fna/.gbff/.gbk/... files (non-recursive)
 > python genome_scan_parallel.py /path/to/dir \
 >   --step-size 3 \
 >   --batch-size 10000 \
@@ -39,27 +44,40 @@
 >   --jobs 8 \
 >   --out-root output
 >
-> # run a glob of FASTA or GenBank files
+> # run one or more globs (shell-expanded) of FASTA/GenBank files
 > python genome_scan_parallel.py "data/*.fasta" "data/*.gbff" \
 >   --step-size 3 \
 >   --batch-size 10000 \
 >   --jobs 8 \
 >   --out-root output
+>
+> # typical HPC-friendly settings to avoid thread oversubscription
+> python genome_scan_parallel.py genomes/ \
+>   --recursive \
+>   --step-size 3 \
+>   --batch-size 10000 \
+>   --jobs 8 \
+>   --subprocess-threads 1 \
+>   --out-root output \
+>   --resume
 > ```
 >
 > **Required arguments**
-> - `--step-size`: sliding window stride (same meaning as the original script). 
-> - `--batch-size`: iLearnPlus feature generation batch size (same meaning as the original script). 
+> - `--step-size`: sliding window stride (same meaning as the original script).
+> - `--batch-size`: iLearnPlus feature generation batch size (same meaning as the original script).
 >
-> **Outputs**
-> For each input genome, results are written to a dedicated folder:
-> `--out-root/<genome_name>/` 
+> **Outputs (parallel runner)**
+> For each input genome, results are written to:
+> `--out-root/<genome_stem>/`
 >
-> That per-genome folder contains:
-> - `run.log`: execution log for that genome (stdout/stderr). 
-> - `*_sliding_windows.csv`: sliding windows table. 
-> - `*_mean.csv`: ensemble mean predictions (same columns/semantics as original output). 
-> - `bedgraph/`: bedGraph tracks derived from `probability_mean` (combined, plus-only, minus-only). 
+> That per-genome folder contains (names are based on `<genome_stem>`):
+> - `run.log`: execution log for that genome (stdout/stderr).
+> - `<genome_stem>slidingwindows.csv`: sliding windows table.
+> - `<genome_stem>mean.csv`: predictions table containing per-embedding probabilities and the mean probability.
+> - `bedgraph/`: bedGraph tracks derived from the mean probability (combined, plus-only, minus-only).
+>
+> **Notes on column names (parallel runner)**
+> The parallel runner writes probability columns without underscores (e.g. `probabilityENAC`, `probabilityPS2`, `probabilityNCP`, `probabilitybinary`) and the mean column as `probabilitymean`.
 >
 > **Installation notes**
 > ```bash
@@ -69,8 +87,8 @@
 > pip install -r requirements.txt
 > conda install -c bioconda bedtools
 > ```
-> 
-> Modifications to the genome_scan.py script and documentation were prepared with the assistance of GPT 5.2 Thinking via Perplexity Pro
+>
+> Modifications to the `genome_scan.py` script and documentation were prepared with the assistance of GPT 5.2 Thinking via Perplexity Pro
 
 ## Abstract 
 Terminator is a region in the DNA that ends the transcription process. Finding bacterial terminators will lead to a better understanding of how bacterial transcription works.  Currently, multiple tools are available for predicting bacterial terminators. However, most methods are specialized for certain bacteria or terminator types. In this work, we developed BacTermFinder, a tool that utilizes Convolutional Neural Networks (CNNs) with four different genomic representations trained on 41k bacterial terminators identified using RNA-seq technologies. Based on our results, BacTermFinder's recall score is higher than that of the other four approaches we considered in our independent validation set of five different bacteria. Moreover, BacTermFinder's model identifies both types of terminators (intrinsic and factor-dependent) and even generalizes to archeal terminators. 
