@@ -1,0 +1,280 @@
+###############################################################################
+# OS / editor junk
+###############################################################################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+*.swp
+*.swo
+*~
+*.bak
+*.out
+
+###############################################################################
+# Python (subset aligned with GitHub Python.gitignore)
+###############################################################################
+__pycache__/
+*.py[codz]
+*$py.class
+
+# Packaging/build
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+
+# Tests / type checking
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environments
+.env
+.envrc
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+###############################################################################
+# R (common local/session files)
+###############################################################################
+.Rhistory
+.RData
+.Rproj.user/
+
+###############################################################################
+# Project structure: local data + outputs (recommended for reproducibility)
+###############################################################################
+data/
+raw_data/
+reads/
+samples/
+reference/
+references/
+ref/
+genomes/
+
+results/
+output/
+outputs/
+reports/
+figures/generated/
+plots/generated/
+
+tmp/
+temp/
+scratch/
+cache/
+.cache/
+
+###############################################################################
+# Workflow engines
+###############################################################################
+# Nextflow
+.nextflow/
+.nextflow.log
+work/
+
+# Snakemake
+.snakemake/
+
+# Cromwell/WDL
+cromwell-executions/
+cromwell-workflow-logs/
+
+###############################################################################
+# Bioinformatics file formats (often large; keep out of Git by default)
+###############################################################################
+# Reads
+*.fastq
+*.fq
+*.fastq.gz
+*.fq.gz
+
+# Alignments
+*.sam
+*.bam
+*.cram
+*.bai
+*.crai
+
+# Variants
+*.vcf
+*.vcf.gz
+*.bcf
+*.g.vcf
+*.g.vcf.gz
+*.tbi
+*.csi
+
+# Assemblies / sequences
+*.fa
+*.fna
+*.fasta
+*.ffn
+*.faa
+*.fa.gz
+*.fna.gz
+*.fasta.gz
+
+# Annotations
+*.gff
+*.gff3
+*.gtf
+*.gff.gz
+*.gff3.gz
+*.gtf.gz
+
+# Big genome browser tracks
+*.bigWig
+*.bigBed
+
+# Nanopore / HDF5-ish containers
+*.fast5
+*.pod5
+*.h5
+*.hdf5
+
+###############################################################################
+# Common index/database artifacts
+###############################################################################
+# samtools / picard
+*.fai
+*.dict
+
+# BWA index
+*.amb
+*.ann
+*.bwt
+*.pac
+*.sa
+
+# Bowtie2 index
+*.bt2
+*.bt2l
+
+# minimap2 index
+*.mmi
+
+# BLAST databases
+*.nhr
+*.nin
+*.nsq
+*.phr
+*.pin
+*.psq
+
+###############################################################################
+# QC / reports (often regenerated)
+###############################################################################
+multiqc_data/
+multiqc_report.html
+*.html
+*.svg
+
+###############################################################################
+# Logs
+###############################################################################
+*.log
+logs/
+log/
+
+###############################################################################
+# IDEs (optional; comment if undesired)
+###############################################################################
+.vscode/
+.idea/
+
+###############################################################################
+# Katana-specific
+###############################################################################
+# Katana output logs
+*.o[0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.o[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]
+*.kman.restech.unsw.edu.au.OU
+
+# Shell scripts, best to keep in but remove if there is any sensitive data
+# .pbs
+
+
+###############################################################################
+# Include the below files - Uncomment out ones required
+###############################################################################
+
+# Assemblies / sequences
+#!*.fa
+#!*.fna
+#!*.fasta
+#!*.ffn
+#!*.faa
+#!*.fa.gz
+#!*.fna.gz
+#!*.fasta.gz
+
+# Annotations
+#!*.gff
+#!*.gff3
+#!*.gtf
+#!*.gff.gz
+#!*.gff3.gz
+#!*.gtf.gz
+
+# Big genome browser tracks
+#!*.bigWig
+#!*.bigBed
+
+# Nanopore / HDF5-ish containers
+#!*.fast5
+#!*.pod5
+#!*.h5
+#!*.hdf5
+
+
+#!data/
+#!raw_data/
+#!reads/
+#!samples/
+#!reference/
+#!references/
+#!ref/
+#!genomes/
+
+#!results/
+#!output/
+#!outputs/
+#!reports/
+#!figures/generated/
+#!plots/generated/
+
+#!tmp/
+#!temp/
+#!scratch/
+#!cache/
+#!.cache/
+
+#!*.html
+#!*.svg
+*.pbs
