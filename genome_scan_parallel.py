@@ -610,7 +610,7 @@ def run_bactermfinder(
         env = None
         if subprocess_threads and subprocess_threads > 0:
             apply_thread_env_to_current_process(subprocess_threads)
-            env = threadenv(subprocess_threads)
+            env = thread_env(subprocess_threads)
 
         if use_gpu is None:
             use_gpu = gpu_available()
