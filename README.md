@@ -100,8 +100,8 @@
 >
 > That per-genome folder contains (names are based on `<genome_stem>`):
 > - `run.log`: execution log for that genome (stdout/stderr).
-> - `<genome_stem>slidingwindows.csv`: sliding windows table.
-> - `<genome_stem>mean.csv`: predictions table containing per-embedding probabilities and the mean probability.
+> - `<genome_stem>_sliding_windows.csv`: sliding windows table.
+> - `<genome_stem>_mean.csv`: predictions table containing per-embedding probabilities and the mean probability.
 > - `bedgraph/`: bedGraph tracks derived from the mean probability (combined, plus-only, minus-only).
 >
 > **Notes on column names (parallel runner)**
